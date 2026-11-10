@@ -142,11 +142,7 @@ details ul { margin: 8px 0 0; padding-left: 18px; color: var(--muted); font-size
       </div>
     </div>
     <div class="row">
-      <div class="tabs" role="group" aria-label="Type (pick one or more)">
-        <button type="button" class="tab" data-tf="g:facing" aria-pressed="false">Facing</button>
-        <button type="button" class="tab" data-tf="g:foldover" aria-pressed="false">Foldover</button>
-        <button type="button" class="tab" data-tf="g:hook &amp; eye" aria-pressed="false">Hook &amp; Eye</button>
-        <button type="button" class="tab" data-tf="nostrap" aria-pressed="false">All except strap</button>
+      <div class="tabs" id="type-tabs" role="group" aria-label="Type (pick one or more)">
         <button type="button" class="tab" data-tf="all" aria-pressed="true">All types</button>
       </div>
       <div class="field"><span class="flabel">Or pick types</span>
@@ -384,18 +380,44 @@ details ul { margin: 8px 0 0; padding-left: 18px; color: var(--muted); font-size
     fillSelect($('alt1-select'), [['*', 'Cheapest other supplier'], ...sups.map((s) => [s, s])], S.alt1);
     fillSelect($('alt2-select'), [['', '(none)'], ...sups.map((s) => [s, s])], S.alt2);
     S.buyer = 'All buyers'; S.tf = new Set(); S.status = ''; $('status-select').value = '';
+    generateDynamicTabs();
     syncTabs();
   }
+  
+  function generateDynamicTabs() {
+    const typeTabs = $('type-tabs');
+    const allTabsContainer = typeTabs.querySelectorAll('.tab');
+    if (allTabsContainer.length <= 1) {
+      const uniqueTypes = new Set();
+      S.rows.forEach((r) => {
+        const cls = String(r.cls || '').trim();
+        if (cls) uniqueTypes.add(cls);
+      });
+      const sortedTypes = [...uniqueTypes].sort();
+      sortedTypes.forEach((typeLabel) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'tab';
+        btn.setAttribute('data-tf', 'g:' + typeLabel.toLowerCase());
+        btn.setAttribute('aria-pressed', 'false');
+        btn.textContent = typeLabel;
+        typeTabs.insertBefore(btn, typeTabs.querySelector('[data-tf="all"]'));
+      });
+      document.querySelectorAll('.tab').forEach((b) => b.removeEventListener('click', toggleTfHandler));
+      document.querySelectorAll('.tab').forEach((b) => b.addEventListener('click', toggleTfHandler));
+    }
+  }
+  
+  const toggleTfHandler = function() { toggleTf(this.dataset.tf); };
   $('sup-select').onchange = (e) => { S.sup = e.target.value; S.buyer = 'All buyers'; cache = null; render(); };
   $('alt1-select').onchange = (e) => { S.alt1 = e.target.value; cache = null; render(); };
   $('alt2-select').onchange = (e) => { S.alt2 = e.target.value; cache = null; render(); };
   $('buyer-select').onchange = (e) => { S.buyer = e.target.value; render(); };
   $('status-select').onchange = (e) => { S.status = e.target.value; render(); };
   const toggleTf = (id) => { if (id === 'all') S.tf.clear(); else if (S.tf.has(id)) S.tf.delete(id); else S.tf.add(id); syncTabs(); render(); };
-  document.querySelectorAll('.tab').forEach((b) => b.addEventListener('click', () => toggleTf(b.dataset.tf)));
   $('type-clear').onclick = () => toggleTf('all');
   document.addEventListener('click', (e) => { const d = $('type-multi'); if (d.open && !d.contains(e.target)) d.open = false; });
-  const tfLabel = (id) => (id === 'nostrap' ? 'all except strap' : id.slice(2));
+  const tfLabel = (id) => { if (id === 'all') return 'All types'; if (id === 'nostrap') return 'all except strap'; return id.startsWith('g:') ? id.slice(2) : id; };
   const tfText = () => { const l = [...S.tf].map(tfLabel); return l.length <= 3 ? l.join(' + ') : `${l.length} type filters`; };
   $('more-btn').onclick = () => { S.showAll = !S.showAll; render(); };
   // Excel download: only when run from the desktop tool (served from this computer)
