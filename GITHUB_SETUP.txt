@@ -1,0 +1,316 @@
+╔═══════════════════════════════════════════════════════════════════════════╗
+║                                                                           ║
+║       SOURCING COST INTELLIGENCE - GITHUB SETUP GUIDE                    ║
+║                                                                           ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+
+✅ LOCAL REPOSITORY READY
+
+Your local Git repository is initialized and ready to push to GitHub.
+
+Location: C:\Users\Anish\Downloads\sourcing-cost-intelligence
+
+Files included:
+  ├── index.html              (Complete source code - 59 KB)
+  ├── README.md              (Project documentation)
+  ├── CONTRIBUTING.md        (Contribution guidelines)
+  ├── LICENSE                (License file - choose your license type)
+  └── .gitignore             (Git ignore rules)
+
+Initial commit created:
+  Commit: 151092c
+  Message: "Initial commit: Sourcing Cost Intelligence source code"
+
+
+═══════════════════════════════════════════════════════════════════════════
+🚀 STEP-BY-STEP: PUSH TO GITHUB
+═══════════════════════════════════════════════════════════════════════════
+
+STEP 1: CREATE REPOSITORY ON GITHUB
+─────────────────────────────────────
+
+1. Go to: https://github.com/new
+2. Sign in to your GitHub account (create one if needed)
+3. Fill in the form:
+
+   Repository name: sourcing-cost-intelligence
+   Description: Desktop application for procurement cost analysis
+   
+   Visibility: Choose one:
+     ✓ Public  (anyone can see, good for open source)
+     ○ Private (only you and collaborators can see)
+   
+   ☐ DO NOT initialize with README
+   ☐ DO NOT add .gitignore
+   ☐ DO NOT add license
+   
+   (We already have these files locally)
+
+4. Click "Create repository"
+5. You'll see setup instructions - follow STEP 2 below instead
+
+
+STEP 2: ADD REMOTE AND PUSH
+─────────────────────────────
+
+In PowerShell, navigate to your repository:
+
+    cd C:\Users\Anish\Downloads\sourcing-cost-intelligence
+
+Add the remote (replace YOUR-USERNAME):
+
+    git remote add origin https://github.com/YOUR-USERNAME/sourcing-cost-intelligence.git
+
+Verify remote was added:
+
+    git remote -v
+
+Should show:
+    origin  https://github.com/YOUR-USERNAME/sourcing-cost-intelligence.git (fetch)
+    origin  https://github.com/YOUR-USERNAME/sourcing-cost-intelligence.git (push)
+
+Push to GitHub:
+
+    git branch -M main
+    git push -u origin main
+
+If prompted for credentials:
+  - Use your GitHub username
+  - For password, use a Personal Access Token (see below)
+
+
+STEP 3: VERIFY ON GITHUB
+─────────────────────────
+
+1. Go to: https://github.com/YOUR-USERNAME/sourcing-cost-intelligence
+2. You should see:
+   ✓ All your files (index.html, README.md, etc.)
+   ✓ README displayed on the main page
+   ✓ Commit history showing initial commit
+   ✓ 1 branch (main)
+
+
+═══════════════════════════════════════════════════════════════════════════
+🔐 GITHUB AUTHENTICATION (If prompted)
+═══════════════════════════════════════════════════════════════════════════
+
+If Git asks for credentials when pushing, use a Personal Access Token:
+
+1. Go to: https://github.com/settings/tokens
+2. Click "Generate new token" (classic)
+3. Give it a name: "Git CLI"
+4. Select scopes:
+   ☑ repo (full control of private repositories)
+5. Click "Generate token"
+6. Copy the token (appears once!)
+7. When Git prompts for password, paste the token instead
+
+GitHub also supports SSH keys - this is more secure for repeated use:
+1. Generate SSH key: ssh-keygen -t ed25519
+2. Add to GitHub: https://github.com/settings/ssh/new
+3. Configure Git to use SSH instead of HTTPS
+
+
+═══════════════════════════════════════════════════════════════════════════
+📝 COMPLETE COMMANDS (Copy & Paste)
+═══════════════════════════════════════════════════════════════════════════
+
+Replace YOUR-USERNAME with your actual GitHub username:
+
+cd C:\Users\Anish\Downloads\sourcing-cost-intelligence
+
+git remote add origin https://github.com/YOUR-USERNAME/sourcing-cost-intelligence.git
+
+git branch -M main
+
+git push -u origin main
+
+
+═══════════════════════════════════════════════════════════════════════════
+✨ WHAT'S INCLUDED IN YOUR GITHUB REPO
+═══════════════════════════════════════════════════════════════════════════
+
+index.html
+  - Complete source code
+  - HTML structure for UI
+  - CSS styling with dark mode support
+  - All JavaScript logic for analysis and reporting
+  - Fully self-contained application
+
+README.md
+  - Project overview
+  - Feature list
+  - Installation instructions
+  - Usage guide
+  - Technical specifications
+  - License information
+
+CONTRIBUTING.md
+  - Guidelines for contributors
+  - Development setup
+  - Code standards
+  - Pull request process
+  - Testing checklist
+
+LICENSE
+  - License text (choose MIT, Apache 2.0, GPL v3, or proprietary)
+  - Edit to add your name/organization
+
+.gitignore
+  - Ignores node_modules, build files, test data
+  - Prevents large executables from being committed
+  - Keeps repo clean and focused on source
+
+
+═══════════════════════════════════════════════════════════════════════════
+🎨 GITHUB REPOSITORY CUSTOMIZATION (Optional)
+═══════════════════════════════════════════════════════════════════════════
+
+After pushing, customize your GitHub page:
+
+1. Go to your repository settings
+2. Add description: "Desktop tool for procurement cost analysis"
+3. Add website URL (if applicable)
+4. Add topics: procurement, analysis, excel, electron, nw.js
+5. Enable features:
+   ☑ Wikis (for documentation)
+   ☑ Discussions (for community)
+   ☑ Issues (for bug reports)
+
+To add a nice badge to README.md:
+
+    ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+
+
+═══════════════════════════════════════════════════════════════════════════
+📊 FUTURE: SETTING UP GITHUB PAGES (Optional)
+═══════════════════════════════════════════════════════════════════════════
+
+To showcase your application online:
+
+1. Create a new folder: docs/
+2. Add index.html there with your website
+3. Go to repo settings → Pages
+4. Select "Deploy from branch" → main → /docs
+5. Your site will be at: https://YOUR-USERNAME.github.io/sourcing-cost-intelligence
+
+
+═══════════════════════════════════════════════════════════════════════════
+🔄 FUTURE UPDATES: AFTER INITIAL PUSH
+═══════════════════════════════════════════════════════════════════════════
+
+When you make changes locally and want to push updates:
+
+1. Make your changes to index.html or other files
+2. Stage the changes:
+   git add .
+   
+3. Commit with a message:
+   git commit -m "[feat] Your feature description"
+   
+4. Push to GitHub:
+   git push
+
+That's it! The changes automatically appear on GitHub.
+
+Good commit message examples:
+  git commit -m "[feat] Add PDF export functionality"
+  git commit -m "[fix] Fix column detection for Excel files"
+  git commit -m "[docs] Update README with new features"
+  git commit -m "[refactor] Improve data parsing performance"
+
+
+═══════════════════════════════════════════════════════════════════════════
+🐛 TROUBLESHOOTING
+═══════════════════════════════════════════════════════════════════════════
+
+Problem: "fatal: 'origin' does not appear to be a 'git' repository"
+Solution: Make sure you're in the right directory:
+  cd C:\Users\Anish\Downloads\sourcing-cost-intelligence
+
+Problem: "Permission denied (publickey)" or authentication fails
+Solution: Use HTTPS instead of SSH, or generate Personal Access Token
+
+Problem: "Everything up-to-date" but files not showing on GitHub
+Solution: Make sure you're pushing the main branch:
+  git push -u origin main
+
+Problem: Want to undo the last commit
+Solution: 
+  git reset --soft HEAD~1
+  (Changes still in staging, can recommit)
+
+
+═══════════════════════════════════════════════════════════════════════════
+📚 USEFUL GITHUB FEATURES
+═══════════════════════════════════════════════════════════════════════════
+
+Issues: Report bugs, request features
+  https://github.com/YOUR-USERNAME/sourcing-cost-intelligence/issues
+
+Discussions: Community Q&A and ideas
+  https://github.com/YOUR-USERNAME/sourcing-cost-intelligence/discussions
+
+Projects: Track development progress
+  https://github.com/YOUR-USERNAME/sourcing-cost-intelligence/projects
+
+Wiki: Additional documentation
+  https://github.com/YOUR-USERNAME/sourcing-cost-intelligence/wiki
+
+Actions: Automate testing and deployment
+  https://github.com/YOUR-USERNAME/sourcing-cost-intelligence/actions
+
+
+═══════════════════════════════════════════════════════════════════════════
+✅ CHECKLIST - BEFORE YOU PUSH
+═══════════════════════════════════════════════════════════════════════════
+
+☑ Edit LICENSE file and specify your license type
+☑ Edit README.md and add any additional info
+☑ Verify all files are present
+☑ Test index.html in browser (one more time)
+☑ GitHub account created
+☑ Repository created on GitHub (but empty)
+☑ Ready to follow STEP-BY-STEP instructions above
+
+
+═══════════════════════════════════════════════════════════════════════════
+🎯 QUICK START COMMAND (After GitHub repo is created)
+═══════════════════════════════════════════════════════════════════════════
+
+cd C:\Users\Anish\Downloads\sourcing-cost-intelligence
+
+git remote add origin https://github.com/YOUR-USERNAME/sourcing-cost-intelligence.git
+
+git branch -M main
+
+git push -u origin main
+
+(That's it! Your code is now on GitHub)
+
+
+═══════════════════════════════════════════════════════════════════════════
+📞 NEED HELP?
+═══════════════════════════════════════════════════════════════════════════
+
+GitHub Docs: https://docs.github.com/
+Git Docs: https://git-scm.com/doc
+GitHub Community: https://github.community/
+
+Common Git Commands:
+  git status              # See current status
+  git log                 # View commit history
+  git diff                # See what changed
+  git branch              # List branches
+  git pull                # Get latest from GitHub
+
+
+═══════════════════════════════════════════════════════════════════════════
+
+YOU'RE READY TO GO! 🚀
+
+Your source code is ready to push to GitHub.
+Just create the repository and follow the STEP-BY-STEP instructions above.
+
+═══════════════════════════════════════════════════════════════════════════
