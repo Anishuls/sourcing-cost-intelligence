@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+
+# Build outputs
+dist/
+build/
+*.exe
+*.zip
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS
+Thumbs.db
+.DS_Store
+*.log
+
+# Test files
+*.test.js
+coverage/
+
+# User data
+*.xlsx
+*.xls
+*.xlsm
+*.csv
+exports/
+downloads/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Temporary
+temp/
+tmp/
+*.temp

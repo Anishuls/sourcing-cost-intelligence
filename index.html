@@ -1,0 +1,789 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sourcing Cost Intelligence</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: one working column — drop zone, then filters, tiles, type table, article table. Utilitarian tool, ledger feel. */
+:root {
+  --bg: #f7f8fa; --panel: #ffffff; --fg: #1b2330; --muted: #5d6878; --line: #dde2ea;
+  --accent: #1f4e8c; --accent-soft: #e6eef9; --bad: #b3261e; --ok: #1e7a3c; --warn: #9a6200;
+  --font-ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12161d; --panel: #1a2029; --fg: #e6eaf0; --muted: #9aa5b5; --line: #2c3440;
+  --accent: #8fb5ec; --accent-soft: #1e2a3b; --bad: #f2867d; --ok: #6fcf8f; --warn: #e3b35c; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12161d; --panel: #1a2029; --fg: #e6eaf0; --muted: #9aa5b5; --line: #2c3440;
+  --accent: #8fb5ec; --accent-soft: #1e2a3b; --bad: #f2867d; --ok: #6fcf8f; --warn: #e3b35c; color-scheme: dark }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-ui); font-size: 14px; line-height: 1.45; }
+.wrap { max-width: 1600px; margin: 0 auto; padding-block: 24px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 22px; }
+h1 { font-size: 26px; margin: 0; font-weight: 600; letter-spacing: -0.01em; text-wrap: balance; }
+h2 { font-size: 17px; margin: 0; font-weight: 600; text-wrap: balance; }
+p { margin: 0; max-width: 78ch; }
+.muted { color: var(--muted); font-size: 12.5px; }
+.lead { font-size: 16px; }
+.drop { border: 2px dashed var(--line); border-radius: 10px; background: var(--panel); padding: 22px; display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; }
+.drop.over { border-color: var(--accent); background: var(--accent-soft); }
+.drop .txt { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.btn { font: inherit; font-weight: 600; background: var(--accent); color: var(--bg); border: 0; border-radius: 6px; padding: 9px 16px; cursor: pointer; }
+.btn:focus-visible, .tab:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.status { font-size: 13px; }
+.status.err { color: var(--bad); }
+.controls { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.field label { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+select { font: inherit; padding: 7px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--fg); max-width: 100%; }
+.tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.tab { font: inherit; background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+.tab[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.tile { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.tile .lbl { font-size: 12px; color: var(--muted); }
+.tile .big { font-family: var(--font-num); font-size: 22px; font-variant-numeric: tabular-nums; }
+.bad { color: var(--bad); } .ok { color: var(--ok); }
+.scroll { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+th { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 600; white-space: nowrap; background: var(--panel); position: sticky; top: 0; }
+td.n, th.n { text-align: right; white-space: nowrap; font-family: var(--font-num); font-size: 13px; }
+td.art { min-width: 170px; max-width: 220px; }
+td.art .ref { font-weight: 600; }
+#art-table th:first-child, #art-table td:first-child { position: sticky; left: 0; background: var(--panel); z-index: 1; box-shadow: 1px 0 0 var(--line); }
+#art-table th:first-child { z-index: 2; }
+#art-table.no-alt2 .alt2 { display: none; }
+#lad-table th:first-child, #lad-table td:first-child { position: sticky; left: 0; background: var(--panel); z-index: 1; box-shadow: 1px 0 0 var(--line); }
+#lad-table td.lad { font-size: 12.5px; min-width: 130px; max-width: 200px; }
+#lad-table td.lad .p { font-family: var(--font-num); }
+#lad-table td.lad.me { background: var(--accent-soft); }
+#spb-table tr.me td { background: var(--accent-soft); }
+#xb-table th:first-child, #xb-table td:first-child { position: sticky; left: 0; background: var(--panel); z-index: 1; box-shadow: 1px 0 0 var(--line); }
+#xb-table td.pb { font-size: 12.5px; min-width: 220px; }
+#xb-table td.pb div { display: flex; justify-content: space-between; gap: 12px; }
+#xb-table td.pb .p { font-family: var(--font-num); }
+#xb-table td.pb .hi { color: var(--bad); font-weight: 600; }
+#xb-table td.pb .lo { color: var(--ok); font-weight: 600; }
+#xb-table td.pb .me { background: var(--accent-soft); }
+#xb-table td.flag { color: var(--bad); font-weight: 600; }
+#xb-tiles .t b { display: block; font-size: 20px; font-family: var(--font-num); }
+#spb-table td.cnt { cursor: help; text-decoration: underline dotted; text-underline-offset: 3px; }
+#spb-table tr.tot td { font-weight: 600; border-top: 2px solid var(--line); }
+td.small { font-size: 12.5px; min-width: 100px; max-width: 200px; }
+td.why { font-size: 12.5px; min-width: 200px; max-width: 300px; }
+tr.click { cursor: pointer; } tr.click:hover td { background: var(--accent-soft); }
+.chip { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; border: 1px solid currentColor; white-space: nowrap; }
+.chip.more { color: var(--bad); } .chip.less { color: var(--ok); } .chip.none { color: var(--warn); } .chip.same { color: var(--muted); }
+.empty { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; display: flex; flex-direction: column; gap: 8px; }
+.empty ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.linkbtn { font: inherit; font-size: 13px; background: none; border: 1px solid var(--line); border-radius: 6px; color: var(--fg); padding: 6px 12px; cursor: pointer; }
+details summary { cursor: pointer; font-weight: 600; }
+.flabel { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.multi { position: relative; }
+.multi summary { font-weight: 400; list-style: none; padding: 7px 28px 7px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); min-width: 220px; position: relative; }
+.multi summary::-webkit-details-marker { display: none; }
+.multi summary::after { content: "▾"; position: absolute; right: 10px; color: var(--muted); }
+.multi .panel { position: absolute; z-index: 5; top: calc(100% + 4px); left: 0; width: 340px; max-width: 90vw; max-height: 360px; overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px; box-shadow: 0 6px 20px rgba(0,0,0,.12); display: flex; flex-direction: column; gap: 6px; }
+.multi label.opt { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; padding: 3px 2px; cursor: pointer; text-transform: none; letter-spacing: normal; color: var(--fg); }
+.multi label.opt input { margin-top: 3px; }
+details ul { margin: 8px 0 0; padding-left: 18px; color: var(--muted); font-size: 12.5px; display: flex; flex-direction: column; gap: 4px; }
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;600&display=swap">
+
+<div class="wrap">
+  <header class="row" style="justify-content: space-between; align-items: flex-end;">
+    <div style="display:flex;flex-direction:column;gap:6px;min-width:0">
+      <h1>Sourcing Cost Intelligence</h1>
+      <p class="muted">Drop in a PO Data export: elastic, hook &amp; eye, fabric or a full list. It compares one supplier's prices with every other supplier, by type and size. The file is read on this computer and is not uploaded anywhere.</p>
+    </div>
+    <div class="row" id="dl-row" hidden>
+      <button type="button" class="btn" id="br-btn">Download buyer report</button>
+      <button type="button" class="btn" id="xl-btn">Download Excel</button>
+    </div>
+  </header>
+
+  <label class="drop" id="drop" for="file-input">
+    <div class="txt">
+      <strong>Drop the PO Data Excel here, or choose a file</strong>
+      <span class="muted">Needs the columns PO Date, Vendor, Classification, Contents, Material Name, Ref No., Color, Specifications, Total Qty(Pri), Total Value USD and Ultimate Buyer.</span>
+      <span class="status" id="status" role="status"></span>
+    </div>
+    <span class="btn" aria-hidden="true">Choose file</span>
+    <input type="file" id="file-input" accept=".xlsx,.xls,.xlsm,.csv" hidden>
+  </label>
+
+  <section class="empty" id="empty">
+    <h2>What you get</h2>
+    <ol>
+      <li>How much you bought from the supplier you pick (Suntak by default), and how much more you paid than Elastique or Takefast for the same type and width.</li>
+      <li>A table by type: average price, extra paid and saved.</li>
+      <li>Every article of that supplier, with the matching Elastique, Takefast and other suppliers' prices, cheapest first.</li>
+    </ol>
+    <p class="muted">Filter by buyer, and by one or more types: Facing, Foldover, Hook &amp; Eye, All except strap, or any exact types together.</p>
+  </section>
+
+  <section id="results" hidden style="display:flex;flex-direction:column;gap:22px">
+    <p class="lead" id="takeaway"></p>
+
+    <div class="controls">
+      <div class="field"><label for="sup-select">Supplier to review</label><select id="sup-select"></select></div>
+      <div class="field"><label for="alt1-select">Compare with</label><select id="alt1-select"></select></div>
+      <div class="field"><label for="alt2-select">and</label><select id="alt2-select"></select></div>
+      <div class="field"><label for="buyer-select">Buyer</label><select id="buyer-select"></select></div>
+      <div class="field"><label for="status-select">Show</label>
+        <select id="status-select">
+          <option value="">All articles</option>
+          <option value="more">Costs more</option>
+          <option value="less">Costs less</option>
+          <option value="others">Other suppliers only</option>
+          <option value="none">No other supplier</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <div class="tabs" role="group" aria-label="Type (pick one or more)">
+        <button type="button" class="tab" data-tf="g:facing" aria-pressed="false">Facing</button>
+        <button type="button" class="tab" data-tf="g:foldover" aria-pressed="false">Foldover</button>
+        <button type="button" class="tab" data-tf="g:hook &amp; eye" aria-pressed="false">Hook &amp; Eye</button>
+        <button type="button" class="tab" data-tf="nostrap" aria-pressed="false">All except strap</button>
+        <button type="button" class="tab" data-tf="all" aria-pressed="true">All types</button>
+      </div>
+      <div class="field"><span class="flabel">Or pick types</span>
+        <details class="multi" id="type-multi">
+          <summary id="type-sum">Choose types</summary>
+          <div class="panel">
+            <div class="row" style="justify-content:space-between"><span class="muted">Tick one or more</span><button type="button" class="linkbtn" id="type-clear">Clear</button></div>
+            <div id="type-list"></div>
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <div class="tiles">
+      <div class="tile"><span class="lbl" id="t1l">Bought</span><span class="big" id="t1"></span><span class="lbl" id="t1s"></span></div>
+      <div class="tile"><span class="lbl" id="t2l">Paid above</span><span class="big bad" id="t2"></span><span class="lbl" id="t2s"></span></div>
+      <div class="tile"><span class="lbl" id="t3l">Saved</span><span class="big ok" id="t3"></span><span class="lbl" id="t3s"></span></div>
+      <div class="tile"><span class="lbl">No other supplier for this type and size</span><span class="big" id="t4"></span><span class="lbl" id="t4s"></span></div>
+    </div>
+
+    <section style="display:flex;flex-direction:column;gap:10px">
+      <h2>By type</h2>
+      <p class="muted">Click a row to add or remove that type from the filter. Prices are $ per the unit shown: metre for elastic, dozen for hook &amp; eye.</p>
+      <div class="scroll"><table>
+        <thead><tr><th>Type</th><th class="n">Qty</th><th class="n">Value</th><th class="n">Avg price</th><th class="n">Articles costing more</th><th class="n">Extra paid</th><th class="n">Articles costing less</th><th class="n">Saved</th></tr></thead>
+        <tbody id="type-body"></tbody>
+      </table></div>
+    </section>
+
+    <section style="display:flex;flex-direction:column;gap:10px">
+      <h2 id="art-title">Article by article</h2>
+      <p class="muted">Matched on category, type, size and unit (hook &amp; eye: hooks × rows and size), for the same buyer where possible; * means for other buyers. These are not confirmed same articles, so treat gaps as a starting point for negotiation.</p>
+      <div class="scroll"><table id="art-table">
+        <thead><tr><th>Article / buyer</th><th class="n">Qty</th><th class="n">Price</th><th id="alt1-h">Alt 1</th><th id="alt2-h" class="alt2">Alt 2</th><th>Other suppliers</th><th>Status</th><th class="n">Extra paid</th><th>What it means</th></tr></thead>
+        <tbody id="art-body"></tbody>
+      </table></div>
+      <div class="row"><button type="button" class="linkbtn" id="more-btn">Show all</button><span class="muted" id="art-count"></span></div>
+    </section>
+
+    <section style="display:flex;flex-direction:column;gap:10px">
+      <div class="row" style="justify-content:space-between;align-items:flex-end">
+        <h2>Price ladder: cheapest, middle and highest supplier</h2>
+        <div class="field"><label for="lad-select">Rows</label>
+          <select id="lad-select">
+            <option value="multi">Where 2 or more suppliers</option>
+            <option value="focus">Where the reviewed supplier buys</option>
+            <option value="all">All</option>
+          </select>
+        </div>
+      </div>
+      <p class="muted">One row per buyer, type and width, across all suppliers in the file. Follows the buyer and type filters. Middle = the supplier in the middle when 3 or more supply it. Largest value first.</p>
+      <div class="scroll"><table id="lad-table">
+        <thead><tr><th>Buyer / type and width</th><th class="n">Suppliers</th><th>Cheapest</th><th>Middle</th><th>Highest</th><th class="n">Spread</th><th id="lad-focus-h">Reviewed supplier</th><th class="n">Total value</th></tr></thead>
+        <tbody id="lad-body"></tbody>
+      </table></div>
+      <div class="row"><button type="button" class="linkbtn" id="lad-more">Show all</button><span class="muted" id="lad-count"></span></div>
+    </section>
+
+    <section style="display:flex;flex-direction:column;gap:10px">
+      <div class="row" style="justify-content:space-between;align-items:flex-end">
+        <h2>Same article used by several buyers</h2>
+        <div class="row" style="align-items:flex-end">
+          <div class="field"><label for="xb-select">Rows</label>
+            <select id="xb-select">
+              <option value="diff">Price differs between buyers</option>
+              <option value="multi">Used by 2 or more buyers</option>
+            </select>
+          </div>
+          <div class="field"><label for="xb-sup">Supplier</label>
+            <select id="xb-sup"><option value="all">All suppliers</option><option value="focus">Reviewed supplier only</option></select>
+          </div>
+        </div>
+      </div>
+      <p class="muted">One row per supplier, article and width. Shows how many buyers it was bought for and the average price each buyer paid. A price difference is flagged when the highest buyer price is more than 0.5% above the lowest. Extra paid = what was paid above the lowest buyer price for the same article. Follows the type filter; prices can differ because of colour or the PO date.</p>
+      <div class="row" id="xb-tiles" style="gap:28px"></div>
+      <div class="scroll"><table id="xb-table">
+        <thead><tr><th>Article / supplier</th><th class="n">Buyers</th><th>Price by buyer</th><th class="n">Difference</th><th class="n">Extra paid</th><th class="n">Total value</th></tr></thead>
+        <tbody id="xb-body"></tbody>
+      </table></div>
+      <div class="row"><button type="button" class="linkbtn" id="xb-more">Show all</button><span class="muted" id="xb-count"></span></div>
+    </section>
+
+    <section style="display:flex;flex-direction:column;gap:10px">
+      <h2>Suppliers used per buyer</h2>
+      <p class="muted">Number of suppliers each buyer used in this file, by category, with the value bought. Hover over a number to see the supplier names. The selected buyer is highlighted.</p>
+      <div class="scroll"><table id="spb-table">
+        <thead id="spb-head"></thead>
+        <tbody id="spb-body"></tbody>
+      </table></div>
+    </section>
+
+  </section>
+</div>
+
+<script src="/xlsx.full.min.js"></script>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const usd0 = (v) => (v < 0 ? '-$' : '$') + Math.abs(v).toLocaleString('en-US', { maximumFractionDigits: 0 });
+  const p4 = (v) => '$' + v.toFixed(4);
+  const qtyf = (v) => v.toLocaleString('en-US', { maximumFractionDigits: 0 });
+  const pct = (v) => (v > 0 ? '+' : '') + (v * 100).toFixed(1) + '%';
+  const norm = (s) => String(s ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const STOP = /\b(CO|LTD|LIMITED|INDUSTRIAL|GROUP|INVESTMENT|TEXTILE|TEXTILES|INDUSTRY|COMPANY|PVT|PRIVATE|GARMENT|ACCESSORIES|ACCESSORY|UNDERWEAR|ELASTIC|ELASTICS|FABRICS|WEAVING|WEBBING|FASTENER|SCIENCE|AND|TECHNILOGY|HONG|KONG|HKG|BD|T&A|UNIT-2|INTIMATES|INTIMA|CITY|FACTORY|ETIKET|DIZAYN|INTERNATIONAL|PT)\b\.?/gi;
+  const shortName = (v) => {
+    let n = String(v).replace(/\(.*?\)/g, '').replace(STOP, '').replace(/[.,&]/g, ' ').replace(/\s+/g, ' ').trim();
+    n = n.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+    if (/LANKA/i.test(v)) n += ' (Lanka)';
+    return n || String(v);
+  };
+
+  const S = { rows: null, sup: '', alt1: '', alt2: '', buyer: 'All buyers', status: '', tf: 'all', showAll: false };
+  let cache = null;
+
+  // ---------- file loading
+  const input = $('file-input'), drop = $('drop');
+  input.addEventListener('change', () => input.files[0] && load(input.files[0]));
+  // desktop tool: tell the .exe this page is still open (it closes itself a minute after the page is closed)
+  if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) { const ping = () => fetch('/ping', { cache: 'no-store' }).catch(() => {}); ping(); setInterval(ping, 5000); }
+  // desktop tool: a file dragged onto the .exe is loaded straight away
+  if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname) && new URLSearchParams(location.search).get('auto')) {
+    fetch('/file').then((r) => (r.ok ? r.blob().then((b) => load(new File([b], decodeURIComponent(r.headers.get('X-File-Name') || 'PO Data.xlsx')))) : null)).catch(() => {});
+  }
+  ['dragenter', 'dragover'].forEach((e) => drop.addEventListener(e, (ev) => { ev.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach((e) => drop.addEventListener(e, (ev) => { ev.preventDefault(); drop.classList.remove('over'); }));
+  drop.addEventListener('drop', (ev) => { const f = ev.dataTransfer.files[0]; if (f) load(f); });
+
+  function setStatus(t, err) { const s = $('status'); s.textContent = t; s.className = 'status' + (err ? ' err' : ''); }
+
+  function load(file) {
+    if (typeof XLSX === 'undefined') { setStatus('The Excel reader did not load. Check your connection and reload the page.', true); return; }
+    setStatus('Reading ' + file.name + '…');
+    const fr = new FileReader();
+    fr.onload = () => {
+      try {
+        const wb = XLSX.read(new Uint8Array(fr.result), { type: 'array', cellDates: true });
+        const rows = parse(wb);
+        S.rows = rows; S.file = file.name; cache = null;
+        setupSelectors();
+        setStatus(`Loaded ${file.name}: ${rows.length.toLocaleString()} lines, ${new Set(rows.map((r) => r.vendor)).size} suppliers, ${fmtDate(rows.minDate)} to ${fmtDate(rows.maxDate)}.`);
+        $('empty').hidden = true; $('results').hidden = false; $('dl-row').hidden = !local;
+        render();
+      } catch (e) { setStatus(e.message || String(e), true); }
+    };
+    fr.onerror = () => setStatus('The file could not be read. Try saving it again from Excel.', true);
+    fr.readAsArrayBuffer(file);
+  }
+  const fmtDate = (d) => d ? d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '?';
+
+  // other names the same column may have in other exports (compared ignoring case, spaces and punctuation)
+  const ALIAS = {
+    vendor: ['vendor', 'vendorname', 'supplier', 'suppliername', 'addname', 'mill', 'millname'],
+    totalvalueusd: ['totalvalueusd', 'valueusd', 'totalvalue', 'amountusd', 'totalamountusd', 'usdvalue', 'usdamount', 'povalueusd', 'povalue', 'poamtusd', 'poamt', 'poamount', 'amount'],
+    totalqtypri: ['totalqtypri', 'totalqty', 'qty', 'quantity', 'poqty', 'orderqty', 'orderquantity', 'totalquantity'],
+    classification: ['classification', 'category', 'itemcategory', 'materialcategory', 'materialtype', 'itemtype', 'class', 'itemgroup', 'materialgroup'],
+    materialname: ['materialname', 'material', 'itemname', 'itemdescription', 'materialdescription', 'description', 'item'],
+    ultimatebuyer: ['ultimatebuyer', 'buyer', 'buyername', 'customer', 'customername', 'brand'],
+    refno: ['refno', 'refnumber', 'reference', 'articleno', 'article', 'articlenumber', 'supplierref', 'supplierarticle'],
+    specifications: ['specifications', 'specification', 'spec', 'width', 'size'],
+    primaryunit: ['primaryunit', 'unit', 'uom', 'qtyunit'],
+    color: ['color', 'colour', 'colorname', 'colourname'],
+    podate: ['podate', 'orderdate', 'date', 'documentdate'],
+    contents: ['contents', 'content', 'composition', 'fibercontent', 'fibrecontent'],
+  };
+  const canonOf = new Map(); for (const [k, l] of Object.entries(ALIAS)) l.forEach((a) => canonOf.has(a) || canonOf.set(a, k));
+  const NAMES = { vendor: 'Vendor (or Supplier)', totalvalueusd: 'Total Value USD (or Amount USD)', totalqtypri: 'Total Qty(Pri) (or Qty)' };
+  function parse(wb) {
+    const own = wb.SheetNames.some((n) => /^(Action list|Price ladder|By buyer|Articles by buyer)$/.test(n)) || (wb.SheetNames[0] === 'Dashboard' && wb.SheetNames.includes('ChartData')) || (wb.SheetNames[0] === 'Summary' && wb.SheetNames.includes('By type'));
+    if (own) throw new Error('This file is a report made by this tool, not a PO Data export. Drop in the original PO Data Excel from your system instead.');
+    const need = ['vendor', 'totalqtypri', 'totalvalueusd'];
+    let seen = null;
+    for (const name of wb.SheetNames) {
+      const aoa = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: true, defval: null });
+      const canonRow = (r) => (r || []).map((c) => { const n = norm(c); return canonOf.get(n) || n; });
+      const hi = aoa.slice(0, 30).findIndex((r) => { const h = canonRow(r); return h.includes('vendor') && h.includes('totalvalueusd'); });
+      if (hi < 0) {
+        if (!seen) { const r = aoa.slice(0, 30).find((x) => x && x.filter((c) => typeof c === 'string' && c.trim()).length >= 4); if (r) seen = { name, cols: r.filter((c) => c != null && String(c).trim()).map((c) => String(c).trim()) }; }
+        continue;
+      }
+      const head = canonRow(aoa[hi]), col = (k) => head.indexOf(k);
+      const miss = need.filter((k) => col(k) < 0);
+      if (miss.length) throw new Error('Missing columns: ' + miss.map((k) => NAMES[k] || k).join(', '));
+      const out = []; let minD = null, maxD = null;
+      for (const r of aoa.slice(hi + 1)) {
+        if (!r || r[col('vendor')] == null) continue;
+        const cls = String(r[col('classification')] ?? '').trim();
+        if (!cls) continue;
+        const he = /hook/i.test(cls);
+        const qp = +r[col('totalqtypri')], usd = +r[col('totalvalueusd')];
+        if (!(qp > 0) || !isFinite(usd)) continue;
+        const g = (k) => col(k) >= 0 ? String(r[col(k)] ?? '').trim() : '';
+        const blank = (v) => !v || v === '-' || v === '0';
+        let qty = qp, unit = g('primaryunit') || 'unit';
+        const qs = +r[col('totalqtysec')];
+        if (col('totalqtysec') >= 0 && qs > 0 && g('secunit')) { qty = qs; unit = g('secunit'); }
+        const contents = g('contents'), cnt = g('count');
+        let mat = String(r[col('materialname')] ?? '').trim();
+        if (he) mat = 'Hook & Eye ' + contents;
+        else if (!/elastic/i.test(cls)) { if (!blank(contents)) mat += ' · ' + contents; if (!blank(cnt)) mat += ' · ' + cnt; }
+        const sp = String(r[col('specifications')] ?? '').trim();
+        const w = sp !== '' && isFinite(+sp) ? String(Math.round(+sp * 10) / 10) : sp;
+        const d = col('podate') >= 0 ? r[col('podate')] : null;
+        const dd = d instanceof Date ? d : null;
+        if (dd) { if (!minD || dd < minD) minD = dd; if (!maxD || dd > maxD) maxD = dd; }
+        const vendor = String(r[col('vendor')]).trim();
+        out.push({ vendor, sup: shortName(vendor), cls, he, unit, mat, k: norm(cls) + '|' + norm(mat) + '|' + unit.toLowerCase(), w,
+          art: col('refno') >= 0 ? String(r[col('refno')] ?? '').trim() : '', color: col('color') >= 0 ? r[col('color')] : '',
+          buyer: String(r[col('ultimatebuyer')] ?? '(no buyer)').trim() || '(no buyer)', qty, usd });
+      }
+      if (!out.length) throw new Error('No usable rows found under the header row.');
+      // canonical type names
+      const byK = new Map();
+      for (const r of out) { const m = byK.get(r.k) || new Map(); m.set(r.mat, (m.get(r.mat) || 0) + 1); byK.set(r.k, m); }
+      const canon = new Map([...byK].map(([k, m]) => [k, [...m].sort((a, b) => b[1] - a[1])[0][0]]));
+      out.forEach((r) => (r.material = canon.get(r.k)));
+      // same type name bought in different units: tag the less common unit, e.g. "Strap Elastic (Kgs)"
+      const uv = new Map();
+      for (const r of out) { const m = uv.get(r.material) || new Map(); m.set(r.unit, (m.get(r.unit) || 0) + r.usd); uv.set(r.material, m); }
+      for (const r of out) { const m = uv.get(r.material); if (m.size > 1) { const top = [...m].sort((a, b) => b[1] - a[1])[0][0]; if (r.unit !== top) r.material += ` (${r.unit})`; } }
+      out.minDate = minD; out.maxDate = maxD;
+      return out;
+    }
+    throw new Error('Could not find the supplier and USD value columns. The tool looks for a "Vendor" (or "Supplier") column and a "Total Value USD" (or "Amount USD") column.' +
+      (seen ? ` Columns found in sheet "${seen.name}": ${seen.cols.slice(0, 30).join(', ')}.` : ''));
+  }
+
+  // ---------- selectors
+  function fillSelect(sel, opts, val) { sel.replaceChildren(...opts.map(([v, t]) => new Option(t, v))); sel.value = val; }
+  function setupSelectors() {
+    const tot = new Map(); S.rows.forEach((r) => tot.set(r.sup, (tot.get(r.sup) || 0) + r.usd));
+    const sups = [...tot].sort((a, b) => b[1] - a[1]).map((d) => d[0]);
+    const pick = (re, fb) => sups.find((s) => re.test(s)) || fb;
+    S.sup = pick(/suntak/i, sups[0]); S.alt1 = pick(/elastique/i, sups.find((s) => s !== S.sup)); S.alt2 = pick(/takefast/i, '');
+    fillSelect($('sup-select'), sups.map((s) => [s, s]), S.sup);
+    fillSelect($('alt1-select'), [['*', 'Cheapest other supplier'], ...sups.map((s) => [s, s])], S.alt1);
+    fillSelect($('alt2-select'), [['', '(none)'], ...sups.map((s) => [s, s])], S.alt2);
+    S.buyer = 'All buyers'; S.tf = new Set(); S.status = ''; $('status-select').value = '';
+    syncTabs();
+  }
+  $('sup-select').onchange = (e) => { S.sup = e.target.value; S.buyer = 'All buyers'; cache = null; render(); };
+  $('alt1-select').onchange = (e) => { S.alt1 = e.target.value; cache = null; render(); };
+  $('alt2-select').onchange = (e) => { S.alt2 = e.target.value; cache = null; render(); };
+  $('buyer-select').onchange = (e) => { S.buyer = e.target.value; render(); };
+  $('status-select').onchange = (e) => { S.status = e.target.value; render(); };
+  const toggleTf = (id) => { if (id === 'all') S.tf.clear(); else if (S.tf.has(id)) S.tf.delete(id); else S.tf.add(id); syncTabs(); render(); };
+  document.querySelectorAll('.tab').forEach((b) => b.addEventListener('click', () => toggleTf(b.dataset.tf)));
+  $('type-clear').onclick = () => toggleTf('all');
+  document.addEventListener('click', (e) => { const d = $('type-multi'); if (d.open && !d.contains(e.target)) d.open = false; });
+  const tfLabel = (id) => (id === 'nostrap' ? 'all except strap' : id.slice(2));
+  const tfText = () => { const l = [...S.tf].map(tfLabel); return l.length <= 3 ? l.join(' + ') : `${l.length} type filters`; };
+  $('more-btn').onclick = () => { S.showAll = !S.showAll; render(); };
+  // Excel download: only when run from the desktop tool (served from this computer)
+  const local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+  // ---------- downloads (desktop tool): the .exe turns this into a formatted Excel with a Dashboard sheet
+  const R2 = (v) => (v == null || !isFinite(v) ? null : Math.round(v * 100) / 100), R4 = (v) => (v == null || !isFinite(v) ? null : Math.round(v * 10000) / 10000);
+  const R3 = (v) => (v == null || !isFinite(v) ? null : Math.round(v * 1000) / 1000);
+  const tfNow = () => (S.tf.size ? [...S.tf].map(tfLabel).join(' + ') : 'All types');
+  const fileBase = () => (S.file || 'PO Data').replace(/\.[^.]+$/, '');
+  async function postReport(rep, btn) {
+    const old = btn.textContent; btn.textContent = 'Preparing…'; btn.disabled = true;
+    try {
+      const res = await fetch('/export?save=1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rep) });
+      const j = await res.json().catch(() => ({ error: 'no answer from the tool' }));
+      if (!res.ok || j.error) throw new Error(j.error || res.statusText);
+      setStatus(`Saved and opened in Excel: ${j.path}`);
+    } catch (e) { setStatus('Could not make the Excel file: ' + (e.message || e), true); }
+    finally { btn.textContent = old; btn.disabled = false; }
+  }
+  const viewRows = () => analyse().arts.filter((a) => (S.buyer === 'All buyers' || a.buyer === S.buyer) && tfMatch(a.material));
+  const comparedOf = (a) => { const et = [a.a1, a.a2].filter(Boolean); const p = et.some((c) => c.same) ? et.filter((c) => c.same) : et; return [...p].sort((x, y) => x.rate - y.rate)[0] || null; };
+  const cheapestAlt = (a) => { const all = [a.a1, a.a2, ...a.rest].filter(Boolean); const sm = all.filter((c) => c.same), p = sm.length ? sm : all; return [...p].sort((x, y) => x.rate - y.rate)[0] || null; };
+
+  // Buyer report: interactive Excel (Buyer and Item dropdowns on the Dashboard; all formulas)
+  $('br-btn').onclick = async () => {
+    if (!S.rows) { setStatus('Load a PO Data file first.', true); return; }
+    const { arts } = analyse();
+    const rows = arts.map((a) => {
+      const c = cheapestAlt(a), gap = c ? a.price / c.rate - 1 : null;
+      const res = !c ? 'No alternative' : gap > 0.005 ? 'Costs more' : gap < -0.005 ? 'Already cheaper' : 'Same price';
+      return [a.buyer, a.art || '(no ref)', a.cls, a.material, a.size, a.unit, a.q, a.price, a.v, c ? c.sup : '', c ? c.arts + (c.same ? '' : ' *') : '', c ? c.rate : null, c ? (c.same ? 'same buyer' : 'other buyers') : '', res];
+    });
+    const val = new Map(); arts.forEach((a) => val.set(a.material, (val.get(a.material) || 0) + a.v));
+    const cv = new Map(); arts.forEach((a) => cv.set(a.cls, (cv.get(a.cls) || 0) + a.v));
+    const low = [...val.keys()].join('\n').toLowerCase();
+    const items = ['All items', ...[...cv].sort((a, b) => b[1] - a[1]).map(([c]) => 'Category: ' + c),
+      ...['facing', 'foldover', 'picot', 'strap', 'tunnel', 'plush'].filter((w) => low.includes(w)).map((w) => 'Contains: ' + w),
+      ...(low.includes('strap') ? ['All except strap'] : []), ...[...val].sort((a, b) => b[1] - a[1]).map(([m]) => m)];
+    let item = 'All items';
+    if (S.tf.size === 1) { const f = [...S.tf][0]; item = f === 'nostrap' ? 'All except strap' : f.startsWith('g:') ? (f === 'g:hook & eye' ? 'Category: ' + ([...cv.keys()].find((c) => /hook/i.test(c)) || 'Hook & Eye') : 'Contains: ' + f.slice(2)) : f.slice(2); if (!items.includes(item)) item = 'All items'; }
+    const { cats, buyers: sb, total } = spb();
+    const spbRows = [];
+    for (const r of [...sb, total]) r.cells.forEach((c, i) => { if (c.n) spbRows.push([r.buyer, cats[i], c.n, R2(c.v), c.names.map(([n, v]) => `${n} (${usd0(v)})`).join(', ')]); });
+    const rep = { fileName: `${fileBase()} - ${S.sup} buyer report.xlsx`, sup: S.sup, file: S.file, buyer: S.buyer, item, items, rows, spbCats: cats, spb: spbRows };
+    const btn = $('br-btn'), old = btn.textContent; btn.textContent = 'Preparing…'; btn.disabled = true;
+    try {
+      const res = await fetch('/export-buyer?save=1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rep) });
+      const j = await res.json().catch(() => ({ error: 'no answer from the tool' }));
+      if (!res.ok || j.error) throw new Error(j.error || res.statusText);
+      setStatus(`Saved and opened in Excel: ${j.path}`);
+    } catch (e) { setStatus('Could not make the Excel file: ' + (e.message || e), true); }
+    finally { btn.textContent = old; btn.disabled = false; }
+  };
+
+  // Download Excel: the current view as a dashboard + article list
+  $('xl-btn').onclick = () => {
+    if (!S.rows) { setStatus('Load a PO Data file first.', true); return; }
+    const rows = viewRows(), sup = S.sup;
+    const more = rows.filter((a) => a.status === 'more'), less = rows.filter((a) => a.status === 'less'), none = rows.filter((a) => a.status === 'none');
+    const vs = S.alt1 === '*' ? 'Cheapest other supplier' : S.alt1 + (S.alt2 ? ' or ' + S.alt2 : '');
+    const types = [...d3group(rows, (a) => a.material)].map(([m, g]) => {
+      const gm = g.filter((a) => a.status === 'more'), gl = g.filter((a) => a.status === 'less');
+      return { m, unit: g[0].unit, q: sum(g, 'q'), v: sum(g, 'v'), nm: gm.length, ex: gm.reduce((s, a) => s + a.extra, 0), nl: gl.length, sv: -gl.reduce((s, a) => s + a.extra, 0) };
+    }).sort((a, b) => b.v - a.v);
+    const top = [...more].sort((a, b) => b.extra - a.extra).slice(0, 15);
+    const ch = types.filter((t) => t.ex > 0 || t.sv > 0).slice(0, 12);
+    const status = { more: 'Costs more', less: 'Costs less', others: 'Other suppliers only', none: 'No other supplier', same: 'Same price' };
+    const rep = {
+      fileName: `${fileBase()} - ${sup} cost intelligence.xlsx`,
+      title: `${sup} vs ${vs}`,
+      filters: [['File', S.file], ['Buyer', S.buyer], ['Types', tfNow()], ['Compared with', vs]],
+      takeaway: $('takeaway').textContent,
+      tiles: [
+        { label: `Bought from ${sup}`, value: R2(sum(rows, 'v')), sub: `${rows.length} articles`, tone: 'plain' },
+        { label: `Paid above ${vs}`, value: R2(more.reduce((s, a) => s + a.extra, 0)), sub: `on ${more.length} articles`, tone: 'bad' },
+        { label: `Saved where ${sup} costs less`, value: R2(-less.reduce((s, a) => s + a.extra, 0)), sub: `on ${less.length} articles`, tone: 'ok' },
+        { label: 'No other supplier', value: R2(sum(none, 'v')), sub: `${none.length} articles`, tone: 'plain' },
+      ],
+      dash: [
+        { title: 'By type', header: ['Type', 'Unit', 'Qty', 'Value $', 'Avg price', 'Articles costing more', 'Extra paid $', 'Articles costing less', 'Saved $'],
+          formats: ['text', 'text', 'qty', 'usd0', 'usd4', 'int', 'usd0', 'int', 'usd0'], widths: [30, 8, 13, 13, 10, 12, 13, 12, 12],
+          rows: types.slice(0, 15).map((t) => [t.m, t.unit, R2(t.q), R2(t.v), R4(t.v / t.q), t.nm, R2(t.ex), t.nl, R2(t.sv)]) },
+        { title: 'Top 15 articles where ' + sup + ' costs more', note: 'Matched on type and width, not a confirmed same article.',
+          header: ['Buyer', 'Article', 'Type and width', 'Qty', `${sup} price`, 'Compared with', 'Their price', 'Extra paid $'],
+          formats: ['text', 'text', 'text', 'qty', 'usd4', 'text', 'usd4', 'usd0'], widths: [38, 13, 26, 13, 12, 24, 12, 14],
+          rows: top.map((a) => { const c = comparedOf(a) || cheapestAlt(a); return [a.buyer, a.art || '(no ref)', `${a.material} ${a.size}`, R2(a.q), R4(a.price), c ? c.sup + (c.same ? '' : ' *') : '', c ? R4(c.rate) : null, R2(a.extra)]; }) },
+      ],
+      chart: { title: 'Extra paid vs saved, by type', categories: ch.map((t) => t.m),
+        series: [{ name: 'Extra paid $', values: ch.map((t) => R2(t.ex)), color: 'B3261E' }, { name: 'Saved $', values: ch.map((t) => R2(t.sv)), color: '1E7A3C' }] },
+      sheets: [{ name: 'Articles', header: ['Buyer', 'Article', 'Type', 'Width / size', 'Qty', 'Unit', `${sup} price`, `${sup} value $`, 'Compared with', 'Their price', 'Status', 'Extra paid $', 'Price gap'],
+        formats: ['text', 'text', 'text', 'text', 'qty', 'text', 'usd4', 'usd0', 'text', 'usd4', 'text', 'usd0', 'pct'], widths: [34, 14, 24, 10, 12, 8, 10, 12, 22, 10, 18, 12, 9],
+        rows: [...rows].sort((x, y) => (y.extra ?? -1e12) - (x.extra ?? -1e12) || y.v - x.v).map((a) => { const c = comparedOf(a) || (a.fb ? cheapestAlt(a) : null);
+          return [a.buyer, a.art || '(no ref)', a.material, a.size, R2(a.q), a.unit, R4(a.price), R2(a.v), c ? c.sup : '', c ? R4(c.rate) : null, status[a.status], a.extra == null ? null : R2(a.extra), a.gap == null ? null : R3(a.gap)]; }) }],
+    };
+    postReport(rep, $('xl-btn'));
+  };
+  function syncTabs() { document.querySelectorAll('.tab').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tf === 'all' ? S.tf.size === 0 : S.tf.has(b.dataset.tf)))); }
+  const tfOne = (f, m, l) => (f === 'nostrap' ? !l.includes('strap') : f.startsWith('g:') ? l.includes(f.slice(2)) : m === f.slice(2));
+  const tfMatch = (m) => { if (!S.tf.size) return true; const l = m.toLowerCase(); for (const f of S.tf) if (tfOne(f, m, l)) return true; return false; };
+
+  // ---------- analysis (cached per supplier choice)
+  function analyse() {
+    if (cache) return cache;
+    const focus = S.rows.filter((r) => r.sup === S.sup), others = S.rows.filter((r) => r.sup !== S.sup);
+    const idx = new Map();
+    for (const r of others) { const key = r.k + '|' + r.w; (idx.get(key) || idx.set(key, []).get(key)).push(r); }
+    const groups = new Map();
+    for (const r of focus) { const key = [r.buyer, r.cls, r.art.toUpperCase(), r.k, r.w].join('|'); (groups.get(key) || groups.set(key, []).get(key)).push(r); }
+    const arts = [];
+    for (const g of groups.values()) {
+      const f = g[0], q = sum(g, 'qty'), v = sum(g, 'usd'), price = v / q;
+      const pool = idx.get(f.k + '|' + f.w) || [];
+      const bySup = new Map(); for (const r of pool) (bySup.get(r.sup) || bySup.set(r.sup, []).get(r.sup)).push(r);
+      const cands = [];
+      for (const [s, rs] of bySup) {
+        const same = rs.filter((r) => r.buyer === f.buyer), use = same.length ? same : rs;
+        const aq = sum(use, 'qty'), av = sum(use, 'usd');
+        const artMap = new Map(); for (const r of use) { const a = artMap.get(r.art) || { q: 0, v: 0 }; a.q += r.qty; a.v += r.usd; artMap.set(r.art, a); }
+        const artList = [...artMap].sort((a, b) => b[1].q - a[1].q).slice(0, 2).map(([a, x]) => `${a} ${p4(x.v / x.q)}`).join(', ');
+        cands.push({ sup: s, rate: av / aq, qty: aq, same: same.length > 0, arts: artList });
+      }
+      const alt = (name) => cands.find((c) => c.sup === name);
+      const cheapest = () => { const sm = cands.filter((c) => c.same), u = sm.length ? sm : cands; return [...u].sort((a, b) => a.rate - b.rate)[0] || null; };
+      let a1 = S.alt1 === '*' ? cheapest() : S.alt1 ? alt(S.alt1) : null, a2 = S.alt1 !== '*' && S.alt2 ? alt(S.alt2) : null;
+      let fb = false;
+      if (!a1 && !a2 && f.he && cands.length) { a1 = cheapest(); fb = true; }
+      const et = [a1, a2].filter(Boolean);
+      const pool2 = et.some((c) => c.same) ? et.filter((c) => c.same) : et;
+      const best = pool2.sort((a, b) => a.rate - b.rate)[0];
+      const rest = cands.filter((c) => c !== a1 && c !== a2 && c.sup !== S.alt1 && c.sup !== S.alt2).sort((a, b) => a.rate - b.rate);
+      const unit = f.unit;
+      let status, extra = null, gap = null, why;
+      const size = f.w === '' ? '(no size)' : (/elastic/i.test(f.cls) && isFinite(+f.w) ? `${f.w}mm` : f.w);
+      if (best) {
+        gap = (price - best.rate) / best.rate; extra = (price - best.rate) * q;
+        const who = `${best.sup} supplies ${f.material.toLowerCase()} ${size}${best.same ? ' to this buyer' : ' to other buyers'} at ${p4(best.rate)}/${unit}`;
+        if (gap > 0.005) { status = 'more'; why = `${S.sup} costs ${(gap * 100).toFixed(0)}% more. ${who}: ${usd0(extra)} extra paid.`; }
+        else if (gap < -0.005) { status = 'less'; why = `${S.sup} costs ${(-gap * 100).toFixed(0)}% less. ${who}.`; }
+        else { status = 'same'; why = `Same price. ${who}.`; }
+      } else if (rest.length) { status = 'others'; why = `${S.alt1}${S.alt2 ? ' and ' + S.alt2 : ''} don't supply this. Cheapest other: ${rest[0].sup} at ${p4(rest[0].rate)}/${unit}.`; }
+      else { status = 'none'; why = 'No other supplier bought this type and size in this file.'; }
+      arts.push({ buyer: f.buyer, cls: f.cls, art: f.art, material: f.material, size, unit, colours: new Set(g.map((r) => r.color)).size, q, v, price,
+        a1, a2, rest, status, extra, gap, why, fb });
+    }
+    cache = { arts, buyers: ['All buyers', ...[...new Set(focus.map((r) => r.buyer))].sort()] };
+    return cache;
+  }
+  const sum = (a, k) => a.reduce((s, r) => s + r[k], 0);
+
+  // ---------- render
+  function render() {
+    if (!S.rows) return;
+    const { arts, buyers } = analyse();
+    if (!buyers.includes(S.buyer)) S.buyer = 'All buyers';
+    fillSelect($('buyer-select'), buyers.map((b) => [b, b]), S.buyer);
+    const inBuyer = arts.filter((a) => S.buyer === 'All buyers' || a.buyer === S.buyer);
+    const types = [...d3group(inBuyer, (a) => a.material)].sort((a, b) => sum(b[1], 'v') - sum(a[1], 'v'));
+    const tl = $('type-list'); tl.replaceChildren();
+    for (const [m] of types) {
+      const lab = document.createElement('label'); lab.className = 'opt';
+      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = S.tf.has('m:' + m);
+      cb.onchange = () => toggleTf('m:' + m);
+      const sp = document.createElement('span'); sp.textContent = m;
+      lab.append(cb, sp); tl.append(lab);
+    }
+    const nPicked = [...S.tf].filter((f) => f.startsWith('m:')).length;
+    $('type-sum').textContent = nPicked ? `${nPicked} type${nPicked > 1 ? 's' : ''} picked` : 'Choose types';
+    const rows = inBuyer.filter((a) => tfMatch(a.material));
+    const more = rows.filter((a) => a.status === 'more'), less = rows.filter((a) => a.status === 'less'), none = rows.filter((a) => a.status === 'none');
+    const total = sum(rows, 'v'), extra = more.reduce((s, a) => s + a.extra, 0), saved = -less.reduce((s, a) => s + a.extra, 0);
+    const anyFb = rows.some((a) => a.fb), allFb = rows.length > 0 && rows.every((a) => a.fb || a.status === 'none');
+    const vs = S.alt1 === '*' || allFb ? 'the cheapest other supplier' : S.alt1 + (S.alt2 ? ' or ' + S.alt2 : '') + (anyFb ? ' (hook & eye: cheapest other supplier)' : '');
+    const tfName = S.tf.size ? ` (${tfText()})` : '';
+    $('takeaway').textContent = `${S.buyer === 'All buyers' ? 'Across all buyers' : 'For ' + S.buyer}${tfName}, ${S.sup}'s price is higher than ${vs} on ${more.length} articles, which cost ${usd0(extra)} extra. It is lower on ${less.length} articles, saving ${usd0(saved)}.`;
+    $('t1l').textContent = `Bought from ${S.sup}`; $('t1').textContent = usd0(total); $('t1s').textContent = `${rows.length} article rows`;
+    $('t2l').textContent = `Paid above ${vs}`; $('t2').textContent = usd0(extra); $('t2s').textContent = `on ${more.length} articles`;
+    $('t3l').textContent = `Saved where ${S.sup} costs less`; $('t3').textContent = usd0(saved); $('t3s').textContent = `on ${less.length} articles`;
+    $('t4').textContent = usd0(sum(none, 'v')); $('t4s').textContent = `${none.length} article rows`;
+    // type table
+    const tb = $('type-body'); tb.replaceChildren();
+    for (const [m, g] of types) {
+      if (!tfMatch(m)) continue;
+      const gm = g.filter((a) => a.status === 'more'), gl = g.filter((a) => a.status === 'less');
+      const tr = document.createElement('tr'); tr.className = 'click'; tr.tabIndex = 0;
+      const go = () => toggleTf('m:' + m);
+      tr.onclick = go; tr.onkeydown = (e) => { if (e.key === 'Enter') go(); };
+      tr.append(td(m), td(qtyf(sum(g, 'q')) + ' ' + g[0].unit, 'n'), td(usd0(sum(g, 'v')), 'n'), td(p4(sum(g, 'v') / sum(g, 'q')), 'n'),
+        td(String(gm.length), 'n'), td(usd0(gm.reduce((s, a) => s + a.extra, 0)), 'n bad'), td(String(gl.length), 'n'), td(usd0(-gl.reduce((s, a) => s + a.extra, 0)), 'n ok'));
+      tb.append(tr);
+    }
+    // articles
+    const showSup = S.alt1 === '*' || anyFb; $('alt1-h').textContent = S.alt1 === '*' ? 'Cheapest other' : (S.alt1 || 'Alt 1') + (anyFb ? ' / cheapest other (H&E)' : ''); $('alt2-h').textContent = S.alt2 || 'Alt 2'; $('art-table').classList.toggle('no-alt2', S.alt1 === '*' || !S.alt2);
+    $('art-title').textContent = `${S.sup} articles`;
+    let list = rows.filter((a) => !S.status || a.status === S.status).sort((a, b) => (b.extra ?? -1e12) - (a.extra ?? -1e12) || b.v - a.v);
+    const n = list.length; if (!S.showAll) list = list.slice(0, 50);
+    const ab = $('art-body'); ab.replaceChildren();
+    const label = { more: 'Costs more', less: 'Costs less', others: 'Other suppliers only', none: 'No other supplier', same: 'Same price' };
+    for (const a of list) {
+      const tr = document.createElement('tr');
+      const c0 = document.createElement('td'); c0.className = 'art';
+      const t1 = document.createElement('div'); t1.className = 'ref'; t1.textContent = a.art || '(no ref)';
+      const t2 = document.createElement('div'); t2.className = 'muted'; t2.textContent = `${a.material} ${a.size} · ${a.colours} colour${a.colours === 1 ? '' : 's'}`;
+      const t3 = document.createElement('div'); t3.className = 'muted'; t3.textContent = a.buyer;
+      c0.append(t1, t2, t3);
+      const altCell = (c) => c ? `${c.sup}: ${c.arts}${c.same ? '' : ' *'}` : '—';
+      const chip = document.createElement('span'); chip.className = 'chip ' + ({ more: 'more', less: 'less', others: 'none', none: 'none' }[a.status] || 'same'); chip.textContent = label[a.status];
+      const cs = document.createElement('td'); cs.append(chip);
+      tr.append(c0, td(qtyf(a.q) + ' ' + a.unit, 'n'), td(p4(a.price), 'n'),
+        td(altCell(a.a1), 'small'), td(altCell(a.a2), 'small alt2'),
+        td(a.rest.length ? a.rest.slice(0, 4).map((c) => `${c.sup} ${p4(c.rate)}${c.same ? '' : ' *'}`).join('; ') + (a.rest.length > 4 ? ` +${a.rest.length - 4} more` : '') : '—', 'small'),
+        cs, td(a.extra == null ? '—' : usd0(a.extra), 'n ' + (a.extra > 0 ? 'bad' : a.extra < 0 ? 'ok' : '')), td(a.why, 'why'));
+      ab.append(tr);
+    }
+    $('art-count').textContent = `Showing ${list.length} of ${n}`;
+    $('more-btn').hidden = n <= 50;
+    $('more-btn').textContent = S.showAll ? 'Show first 50' : `Show all ${n}`;
+    renderLadder();
+    renderXb();
+    renderSpb();
+  }
+  function td(t, cls) { const c = document.createElement('td'); c.textContent = t; if (cls) c.className = cls; return c; }
+
+  // ---------- price ladder (all suppliers; independent of the compare-with choice)
+  let ladCache = null;
+  function ladder() {
+    if (ladCache && ladCache.rows === S.rows) return ladCache.out;
+    const g = new Map();
+    for (const r of S.rows) {
+      const key = r.buyer + '|' + r.k + '|' + r.w;
+      let e = g.get(key);
+      if (!e) { e = { buyer: r.buyer, material: r.material, cls: r.cls, w: r.w, unit: r.unit, sups: new Map(), v: 0 }; g.set(key, e); }
+      e.v += r.usd;
+      const sp = e.sups.get(r.sup) || { sup: r.sup, q: 0, v: 0, refs: new Map() };
+      sp.q += r.qty; sp.v += r.usd; sp.refs.set(r.art, (sp.refs.get(r.art) || 0) + r.qty); e.sups.set(r.sup, sp);
+    }
+    const out = [];
+    for (const e of g.values()) {
+      const sups = [...e.sups.values()].map((x) => ({ sup: x.sup, q: x.q, v: x.v, price: x.v / x.q, ref: [...x.refs].sort((a, b) => b[1] - a[1])[0][0] || '(no ref)' }))
+        .sort((a, b) => a.price - b.price || a.sup.localeCompare(b.sup));
+      const n = sups.length;
+      const size = e.w === '' ? '(no size)' : (/elastic/i.test(e.cls) && isFinite(+e.w) ? `${e.w}mm` : e.w);
+      out.push({ buyer: e.buyer, material: e.material, size, unit: e.unit, v: e.v, n, sups, low: sups[0], mid: n >= 3 ? sups[Math.floor((n - 1) / 2)] : null, high: n >= 2 ? sups[n - 1] : null,
+        spread: n >= 2 ? sups[n - 1].price / sups[0].price - 1 : null });
+    }
+    out.sort((a, b) => b.v - a.v);
+    ladCache = { rows: S.rows, out };
+    return out;
+  }
+  const ladRank = (l) => { const i = l.sups.findIndex((x) => x.sup === S.sup); return i < 0 ? null : { i, x: l.sups[i] }; };
+  const ord = (n) => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th');
+  function ladRows() {
+    const mode = $('lad-select').value;
+    return ladder().filter((l) => (S.buyer === 'All buyers' || l.buyer === S.buyer) && tfMatch(l.material) &&
+      (mode === 'all' || (mode === 'multi' ? l.n >= 2 : l.sups.some((x) => x.sup === S.sup))));
+  }
+  function renderLadder() {
+    const rows = ladRows(), n = rows.length, list = S.ladAll ? rows : rows.slice(0, 50);
+    $('lad-focus-h').textContent = S.sup;
+    const body = $('lad-body'); body.replaceChildren();
+    const cellFor = (x) => {
+      const c = document.createElement('td'); c.className = 'lad' + (x && x.sup === S.sup ? ' me' : '');
+      if (!x) { c.textContent = '—'; return c; }
+      const a = document.createElement('div'); a.textContent = x.sup; a.style.fontWeight = '600';
+      const b = document.createElement('div'); b.className = 'p'; b.textContent = p4(x.price);
+      const d = document.createElement('div'); d.className = 'muted'; d.textContent = x.ref;
+      c.append(a, b, d); return c;
+    };
+    for (const l of list) {
+      const tr = document.createElement('tr');
+      const c0 = document.createElement('td'); c0.className = 'art';
+      const t1 = document.createElement('div'); t1.className = 'ref'; t1.textContent = `${l.material} ${l.size}`;
+      const t2 = document.createElement('div'); t2.className = 'muted'; t2.textContent = `${l.buyer} · per ${l.unit}`;
+      c0.append(t1, t2);
+      const r = ladRank(l);
+      const fc = document.createElement('td'); fc.className = 'lad';
+      if (r) {
+        const a = document.createElement('div'); a.className = 'p'; a.textContent = p4(r.x.price);
+        const b = document.createElement('div'); b.className = 'muted';
+        b.textContent = l.n === 1 ? 'only supplier' : r.i === 0 ? `cheapest of ${l.n}` : r.i === l.n - 1 ? `highest of ${l.n}` : `${ord(r.i + 1)} of ${l.n}`;
+        if (r.i > 0) b.textContent += ` · +${((r.x.price / l.low.price - 1) * 100).toFixed(0)}% vs cheapest`;
+        fc.append(a, b);
+      } else fc.textContent = '—';
+      tr.append(c0, td(String(l.n), 'n'), cellFor(l.low), cellFor(l.mid), cellFor(l.high), td(l.spread == null ? '—' : '+' + (l.spread * 100).toFixed(0) + '%', 'n'), fc, td(usd0(l.v), 'n'));
+      body.append(tr);
+    }
+    $('lad-count').textContent = `Showing ${list.length} of ${n}`;
+    $('lad-more').hidden = n <= 50;
+    $('lad-more').textContent = S.ladAll ? 'Show first 50' : `Show all ${n}`;
+  }
+  $('lad-select').onchange = () => renderLadder();
+
+  // ---------- same article used by several buyers (whole file; follows the type filter)
+  let xbCache = null;
+  function xbuyers() {
+    if (xbCache && xbCache.rows === S.rows) return xbCache.out;
+    const g = new Map();
+    for (const r of S.rows) {
+      if (!r.art) continue;
+      const key = r.sup + '|' + r.art + '|' + r.k + '|' + r.w;
+      let e = g.get(key);
+      if (!e) { e = { sup: r.sup, art: r.art, material: r.material, cls: r.cls, w: r.w, unit: r.unit, by: new Map(), v: 0 }; g.set(key, e); }
+      e.v += r.usd;
+      const b = e.by.get(r.buyer) || { buyer: r.buyer, q: 0, v: 0 }; b.q += r.qty; b.v += r.usd; e.by.set(r.buyer, b);
+    }
+    const out = [];
+    for (const e of g.values()) {
+      if (e.by.size < 2) continue;
+      const by = [...e.by.values()].map((b) => ({ ...b, price: b.v / b.q })).sort((a, b) => a.price - b.price || a.buyer.localeCompare(b.buyer));
+      const lo = by[0].price, hi = by[by.length - 1].price;
+      const extra = by.reduce((s, b) => s + (b.price - lo) * b.q, 0);
+      const size = e.w === '' ? '' : (/elastic/i.test(e.cls) && isFinite(+e.w) ? `${e.w}mm` : e.w);
+      out.push({ ...e, size, by, n: by.length, diff: hi / lo - 1, extra, flag: hi / lo - 1 > 0.005 });
+    }
+    out.sort((a, b) => b.extra - a.extra || b.v - a.v);
+    xbCache = { rows: S.rows, out };
+    return out;
+  }
+  function renderXb() {
+    const mode = $('xb-select').value, onlyMe = $('xb-sup').value === 'focus';
+    const all = xbuyers().filter((x) => tfMatch(x.material) && (!onlyMe || x.sup === S.sup));
+    const rows = mode === 'diff' ? all.filter((x) => x.flag) : all;
+    const list = S.xbAll ? rows : rows.slice(0, 50);
+    const flagged = all.filter((x) => x.flag), ex = flagged.reduce((s, x) => s + x.extra, 0);
+    const tile = (n, t) => { const d = document.createElement('div'); d.className = 't'; const b = document.createElement('b'); b.textContent = n; d.append(b, document.createTextNode(t)); return d; };
+    $('xb-tiles').replaceChildren(tile(all.length.toLocaleString(), 'articles used by 2 or more buyers'), tile(flagged.length.toLocaleString(), 'with a price difference between buyers'), tile(usd0(ex), 'extra paid above the lowest buyer price'));
+    const body = $('xb-body'); body.replaceChildren();
+    for (const x of list) {
+      const tr = document.createElement('tr');
+      const c0 = document.createElement('td'); c0.className = 'art';
+      const t1 = document.createElement('div'); t1.className = 'ref'; t1.textContent = x.art;
+      const t2 = document.createElement('div'); t2.className = 'muted'; t2.textContent = `${x.sup} · ${x.material}${x.size ? ' ' + x.size : ''} · per ${x.unit}`;
+      c0.append(t1, t2);
+      const pb = document.createElement('td'); pb.className = 'pb';
+      x.by.forEach((b, i) => {
+        const d = document.createElement('div'); if (b.buyer === S.buyer) d.className = 'me';
+        const a = document.createElement('span'); a.textContent = b.buyer;
+        const p = document.createElement('span'); p.className = 'p' + (x.flag && i === 0 ? ' lo' : x.flag && i === x.n - 1 ? ' hi' : ''); p.textContent = p4(b.price);
+        d.title = `${b.buyer}: ${usd0(b.v)} for ${Math.round(b.q).toLocaleString()} ${x.unit}`;
+        d.append(a, p); pb.append(d);
+      });
+      tr.append(c0, td(String(x.n), 'n'), pb, td(x.flag ? '+' + (x.diff * 100).toFixed(1) + '%' : 'same', 'n' + (x.flag ? ' flag' : '')), td(x.flag ? usd0(x.extra) : '—', 'n'), td(usd0(x.v), 'n'));
+      body.append(tr);
+    }
+    $('xb-count').textContent = `Showing ${list.length} of ${rows.length}`;
+    $('xb-more').hidden = rows.length <= 50;
+    $('xb-more').textContent = S.xbAll ? 'Show first 50' : `Show all ${rows.length}`;
+  }
+  $('xb-select').onchange = $('xb-sup').onchange = () => renderXb();
+  $('xb-more').onclick = () => { S.xbAll = !S.xbAll; renderXb(); };
+
+  // ---------- suppliers used per buyer (whole file, by category)
+  let spbCache = null;
+  function spb() {
+    if (spbCache && spbCache.rows === S.rows) return spbCache.out;
+    const catV = new Map(), m = new Map(), all = new Map();
+    for (const r of S.rows) {
+      catV.set(r.cls, (catV.get(r.cls) || 0) + r.usd);
+      const b = m.get(r.buyer) || new Map(); const c = b.get(r.cls) || new Map(); c.set(r.sup, (c.get(r.sup) || 0) + r.usd); b.set(r.cls, c); m.set(r.buyer, b);
+      const a = all.get(r.cls) || new Map(); a.set(r.sup, (a.get(r.sup) || 0) + r.usd); all.set(r.cls, a);
+    }
+    const cats = [...catV].sort((a, b) => b[1] - a[1]).map((x) => x[0]);
+    const pack = (b) => cats.map((c) => { const x = b.get(c); if (!x) return { n: 0, v: 0, names: [] }; const l = [...x].sort((p, q) => q[1] - p[1]); return { n: l.length, v: l.reduce((s, y) => s + y[1], 0), names: l }; });
+    const buyers = [...m].map(([b, x]) => ({ buyer: b, cells: pack(x) })).map((r) => ({ ...r, v: r.cells.reduce((s, c) => s + c.v, 0) })).sort((a, b) => b.v - a.v);
+    const total = { buyer: 'All buyers', cells: pack(all) }; total.v = total.cells.reduce((s, c) => s + c.v, 0);
+    spbCache = { rows: S.rows, out: { cats, buyers, total } };
+    return spbCache.out;
+  }
+  function renderSpb() {
+    const { cats, buyers, total } = spb();
+    const hr = document.createElement('tr');
+    const th = (t, n) => { const e = document.createElement('th'); e.textContent = t; if (n) e.className = 'n'; return e; };
+    hr.append(th('Buyer'), ...cats.flatMap((c) => [th(c + ' suppliers', 1), th(c + ' value', 1)]), th('Total value', 1));
+    $('spb-head').replaceChildren(hr);
+    const body = $('spb-body'); body.replaceChildren();
+    for (const r of [...buyers, total]) {
+      const tr = document.createElement('tr');
+      if (r === total) tr.className = 'tot'; else if (r.buyer === S.buyer) tr.className = 'me';
+      tr.append(td(r.buyer));
+      for (const c of r.cells) {
+        const a = td(c.n ? String(c.n) : '—', 'n' + (c.n ? ' cnt' : ''));
+        if (c.n) a.title = c.names.map(([s, v]) => `${s}: ${usd0(v)}`).join('\n');
+        tr.append(a, td(c.v ? usd0(c.v) : '—', 'n'));
+      }
+      tr.append(td(usd0(r.v), 'n'));
+      body.append(tr);
+    }
+  }
+  $('lad-more').onclick = () => { S.ladAll = !S.ladAll; renderLadder(); };
+  function d3group(arr, f) { const m = new Map(); for (const a of arr) { const k = f(a); (m.get(k) || m.set(k, []).get(k)).push(a); } return m; }
+})();
+</script>
